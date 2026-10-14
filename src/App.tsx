@@ -21,7 +21,11 @@ import {
   formatBRL,
   generateDefaultMaterials,
 } from './utils/calculations';
-import { exportToCSV, generateWhatsAppMessage } from './utils/exportUtils';
+import {
+  exportToCSV,
+  generateWhatsAppMessage,
+  downloadPrintableHtml,
+} from './utils/exportUtils';
 import { Header } from './components/Header';
 import { CalculatorInputs } from './components/CalculatorInputs';
 import { MaterialsTable } from './components/MaterialsTable';
@@ -43,25 +47,36 @@ import {
 const STORAGE_KEY_COMPANY = 'voltcharge_company_data';
 const STORAGE_KEY_CLIENT = 'voltcharge_client_data';
 const STORAGE_KEY_QUOTES = 'voltcharge_saved_quotes';
+const STORAGE_KEY_INPUTS = 'voltcharge_inputs_data';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'calculator' | 'proposal' | 'settings'>('calculator');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // 1. Estado inicial exatamente igual à planilha do usuário
-  const [inputs, setInputs] = useState<CalculationInputs>({
-    potenciaKw: 7.0,
-    distanciaMetros: 30,
-    tipoLigacao: 'MONOFÁSICO',
-    bitolaCabo: '10 mm²',
-    taxaMenor30: DEFAULT_PRICES.taxaInstalacaoMenor30, // R$ 56,00
-    taxaMaior30: DEFAULT_PRICES.taxaInstalacaoMaior30, // R$ 50,00
-    chargerModelName: 'Wallbox BYD 7.0 kW',
-    includeEquipment: false,
-    equipmentPrice: 4200,
-    customArtTax: 0,
-    discountPercentage: 5,
-    bdiMarginPercentage: 0,
+  // 1. Estado inicial com persistência das taxas e configurações
+  const [inputs, setInputs] = useState<CalculationInputs>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_INPUTS);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar inputs:', e);
+    }
+    return {
+      potenciaKw: 7.0,
+      distanciaMetros: 30,
+      tipoLigacao: 'MONOFÁSICO',
+      bitolaCabo: '10 mm²',
+      taxaMenor30: DEFAULT_PRICES.taxaInstalacaoMenor30, // R$ 56,00
+      taxaMaior30: DEFAULT_PRICES.taxaInstalacaoMaior30, // R$ 50,00
+      chargerModelName: 'Wallbox BYD 7.0 kW',
+      includeEquipment: false,
+      equipmentPrice: 4200,
+      customArtTax: 0,
+      discountPercentage: 5,
+      bdiMarginPercentage: 0,
+    };
   });
 
   // 2. Dados da Empresa (com persistência local)
@@ -137,6 +152,14 @@ export default function App() {
     }
   }, [savedQuotes]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_INPUTS, JSON.stringify(inputs));
+    } catch (e) {
+      console.warn('Erro ao salvar inputs:', e);
+    }
+  }, [inputs]);
+
   // Recalcular materiais automáticos quando parâmetros mudam
   const updateInputs = (newInputs: Partial<CalculationInputs>) => {
     setInputs((prev) => {
@@ -211,9 +234,37 @@ export default function App() {
     }, 3500);
   };
 
-  // Ações de exportação
+  // Ações de exportação e impressão
+  const handleDownloadHtml = () => {
+    downloadPrintableHtml(
+      company,
+      client,
+      inputs,
+      materials,
+      subtotalMateriais,
+      subtotalMaoDeObra,
+      equipmentPriceTotal,
+      inputs.includeEquipment,
+      totalGeral,
+      electricalAnalysis
+    );
+    showToast('Arquivo para impressão baixado! Abra-o para imprimir ou salvar em PDF.');
+  };
+
   const handlePrint = () => {
-    window.print();
+    if (activeTab !== 'proposal') {
+      setActiveTab('proposal');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      try {
+        window.focus();
+        window.print();
+      } catch (e) {
+        console.warn('Erro ao acionar window.print:', e);
+        handleDownloadHtml();
+      }
+    }, 250);
   };
 
   const handleExportCsv = () => {
@@ -295,106 +346,105 @@ export default function App() {
       {/* Conteúdo Principal */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* ABA 1: CALCULADORA & MEMORIAL */}
-        {activeTab === 'calculator' && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Bloco de Dados do Cliente e Local */}
-            <ClientForm
-              client={client}
-              onChange={(updates) => setClient((prev) => ({ ...prev, ...updates }))}
-            />
+        <div className={`space-y-6 ${activeTab === 'calculator' ? 'block' : 'hidden'} print:hidden`}>
+          {/* Bloco de Dados do Cliente e Local */}
+          <ClientForm
+            client={client}
+            onChange={(updates) => setClient((prev) => ({ ...prev, ...updates }))}
+          />
 
-            {/* Bloco de Inputs e Regras da Planilha */}
-            <CalculatorInputs
-              inputs={inputs}
-              onChange={updateInputs}
-              electricalAnalysis={electricalAnalysis}
-            />
+          {/* Bloco de Inputs e Regras da Planilha */}
+          <CalculatorInputs
+            inputs={inputs}
+            onChange={updateInputs}
+            electricalAnalysis={electricalAnalysis}
+            onGoToSettings={() => setActiveTab('settings')}
+          />
 
-            {/* Memorial Analítico de Materiais */}
-            <MaterialsTable
-              materials={materials}
-              onUpdateItem={handleUpdateItem}
-              onDeleteItem={handleDeleteItem}
-              onAddItem={handleAddItem}
-              onResetToDefaults={handleResetToDefaults}
-              subtotalMateriais={subtotalMateriais}
-              subtotalMaoDeObra={subtotalMaoDeObra}
-              totalGeral={totalGeral}
-            />
+          {/* Memorial Analítico de Materiais */}
+          <MaterialsTable
+            materials={materials}
+            onUpdateItem={handleUpdateItem}
+            onDeleteItem={handleDeleteItem}
+            onAddItem={handleAddItem}
+            onResetToDefaults={handleResetToDefaults}
+            subtotalMateriais={subtotalMateriais}
+            subtotalMaoDeObra={subtotalMaoDeObra}
+            totalGeral={totalGeral}
+          />
 
-            {/* Resumo Financeiro & Condições */}
-            <FinancialSummary
-              subtotalMateriais={subtotalMateriais}
-              subtotalMaoDeObra={subtotalMaoDeObra}
-              equipmentPrice={equipmentPriceTotal}
-              includeEquipment={inputs.includeEquipment}
-              totalGeral={totalGeral}
-              discountPercentage={inputs.discountPercentage}
-              onDiscountChange={(val) => updateInputs({ discountPercentage: val })}
-              onGoToProposal={() => setActiveTab('proposal')}
-            />
+          {/* Resumo Financeiro & Condições */}
+          <FinancialSummary
+            subtotalMateriais={subtotalMateriais}
+            subtotalMaoDeObra={subtotalMaoDeObra}
+            equipmentPrice={equipmentPriceTotal}
+            includeEquipment={inputs.includeEquipment}
+            totalGeral={totalGeral}
+            discountPercentage={inputs.discountPercentage}
+            onDiscountChange={(val) => updateInputs({ discountPercentage: val })}
+            onGoToProposal={() => setActiveTab('proposal')}
+          />
 
-            {/* Barra de Ações Rápidas Inferior */}
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-200">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveQuoteToHistory}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-2xs transition-colors"
-                >
-                  <BookmarkPlus className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Salvar Orçamento no Histórico</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500 font-mono">
-                  Total Calculado: <strong>{formatBRL(totalGeral)}</strong>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('proposal')}
-                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-sm transition-colors"
-                >
-                  Gerar Proposta Oficial com Logo
-                </button>
-              </div>
+          {/* Barra de Ações Rápidas Inferior */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-200">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveQuoteToHistory}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-2xs transition-colors"
+              >
+                <BookmarkPlus className="w-3.5 h-3.5 text-slate-600" />
+                <span>Salvar Orçamento no Histórico</span>
+              </button>
             </div>
 
-            {/* Histórico de Orçamentos Salvos (se houver) */}
-            {savedQuotes.length > 0 && (
-              <div className="bg-white p-4 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-slate-700">
-                  <History className="w-4 h-4 text-emerald-600" />
-                  <span>Orçamentos Salvos Recentemente ({savedQuotes.length})</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                  {savedQuotes.map((q) => (
-                    <div
-                      key={q.id}
-                      onClick={() => handleLoadQuote(q)}
-                      className="p-3 rounded-lg border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/20 cursor-pointer transition-all text-xs"
-                    >
-                      <div className="flex justify-between font-bold text-slate-900 font-mono">
-                        <span>{q.code}</span>
-                        <span>{formatBRL(q.totalGeral)}</span>
-                      </div>
-                      <div className="text-slate-600 font-medium truncate mt-1">
-                        {q.client.nome || 'Cliente'}
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        {q.inputs.distanciaMetros}m · {q.inputs.tipoLigacao} · {q.createdAt}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-mono">
+                Total Calculado: <strong>{formatBRL(totalGeral)}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveTab('proposal')}
+                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-sm transition-colors"
+              >
+                Gerar Proposta Oficial com Logo
+              </button>
+            </div>
           </div>
-        )}
 
-        {/* ABA 2: RELATÓRIO & PROPOSTA TÉCNICA */}
-        {activeTab === 'proposal' && (
+          {/* Histórico de Orçamentos Salvos (se houver) */}
+          {savedQuotes.length > 0 && (
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-slate-700">
+                <History className="w-4 h-4 text-emerald-600" />
+                <span>Orçamentos Salvos Recentemente ({savedQuotes.length})</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                {savedQuotes.map((q) => (
+                  <div
+                    key={q.id}
+                    onClick={() => handleLoadQuote(q)}
+                    className="p-3 rounded-lg border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/20 cursor-pointer transition-all text-xs"
+                  >
+                    <div className="flex justify-between font-bold text-slate-900 font-mono">
+                      <span>{q.code}</span>
+                      <span>{formatBRL(q.totalGeral)}</span>
+                    </div>
+                    <div className="text-slate-600 font-medium truncate mt-1">
+                      {q.client.nome || 'Cliente'}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      {q.inputs.distanciaMetros}m · {q.inputs.tipoLigacao} · {q.createdAt}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ABA 2: RELATÓRIO & PROPOSTA TÉCNICA (Sempre visível para impressão) */}
+        <div className={`${activeTab === 'proposal' ? 'block' : 'hidden'} print:block`}>
           <ProposalReport
             company={company}
             client={client}
@@ -409,18 +459,21 @@ export default function App() {
             onPrint={handlePrint}
             onShareWhatsApp={handleShareWhatsApp}
             onExportCsv={handleExportCsv}
+            onDownloadHtml={handleDownloadHtml}
             onBackToCalculator={() => setActiveTab('calculator')}
           />
-        )}
+        </div>
 
         {/* ABA 3: CONFIGURAÇÕES DA EMPRESA & LOGO */}
-        {activeTab === 'settings' && (
+        <div className={`space-y-6 ${activeTab === 'settings' ? 'block' : 'hidden'} print:hidden`}>
           <CompanySettings
             company={company}
             onChange={(updates) => setCompany((prev) => ({ ...prev, ...updates }))}
             onResetDefaults={() => setCompany(DEFAULT_COMPANY)}
+            inputs={inputs}
+            onInputsChange={updateInputs}
           />
-        )}
+        </div>
       </main>
 
       {/* Footer Minimalista */}
@@ -428,7 +481,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-emerald-600" />
-            <span>VoltCalc EV · Calculadora de Infraestrutura para Carregadores de Veículos Elétricos</span>
+            <span>EV Calc · Calculadora de Infraestrutura para Carregadores de Veículos Elétricos</span>
           </div>
           <div>
             <span>Conformidade NBR 5410 & NBR 17019 · {company.nomeFantasia}</span>

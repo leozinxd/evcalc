@@ -8,25 +8,24 @@ import {
 import { CHARGER_PRESETS } from '../constants/presets';
 import { ElectricalAnalysis } from '../utils/calculations';
 import {
-  Zap,
-  Gauge,
   Sliders,
   AlertTriangle,
   CheckCircle2,
-  Info,
-  DollarSign,
+  Settings,
 } from 'lucide-react';
 
 interface CalculatorInputsProps {
   inputs: CalculationInputs;
   onChange: (newInputs: Partial<CalculationInputs>) => void;
   electricalAnalysis: ElectricalAnalysis;
+  onGoToSettings?: () => void;
 }
 
 export const CalculatorInputs: React.FC<CalculatorInputsProps> = ({
   inputs,
   onChange,
   electricalAnalysis,
+  onGoToSettings,
 }) => {
   const handlePresetSelect = (preset: ChargerPreset) => {
     onChange({
@@ -45,26 +44,39 @@ export const CalculatorInputs: React.FC<CalculatorInputsProps> = ({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-6">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
         <div>
           <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
             <Sliders className="w-4 h-4 text-emerald-600" />
             Parâmetros da Instalação
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Defina a potência, distância de cabeamento, tipo de rede e taxas por metro.
+            Defina a potência, distância de cabeamento, tipo de rede e bitola dos condutores.
           </p>
         </div>
-        <div className="text-right">
+        <div className="text-left sm:text-right">
           <span className="text-xs font-medium text-slate-500 block">
-            Taxa Aplicada Mão de Obra:
+            Taxa Mão de Obra Aplicada:
           </span>
-          <span className="text-sm font-bold text-slate-900 font-mono">
-            R$ {currentLaborRate.toFixed(2)}/m{' '}
-            <span className="text-xs font-normal text-slate-500">
-              ({isDistanciaAcima30 ? '≥ 30m' : '< 30m'})
+          <div className="flex items-center sm:justify-end gap-2">
+            <span className="text-sm font-bold text-slate-900 font-mono">
+              R$ {currentLaborRate.toFixed(2)}/m{' '}
+              <span className="text-xs font-normal text-slate-500">
+                ({isDistanciaAcima30 ? '≥ 30m' : '< 30m'})
+              </span>
             </span>
-          </span>
+            {onGoToSettings && (
+              <button
+                type="button"
+                onClick={onGoToSettings}
+                title="Configurar taxas na aba Empresa & Logo"
+                className="text-[11px] text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5 font-medium hover:underline"
+              >
+                <Settings className="w-3 h-3" />
+                <span>Configurar</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -218,114 +230,6 @@ export const CalculatorInputs: React.FC<CalculatorInputsProps> = ({
           <p className="text-[11px] text-slate-500 mt-1.5">
             Cobre flexível 750V / 1kV NBR NM 247-3
           </p>
-        </div>
-      </div>
-
-      {/* Precificação de Instalação (Regras da planilha) */}
-      <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-emerald-600" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              Precificação de Instalação (Mão de Obra por Metro)
-            </h3>
-          </div>
-          <span className="text-xs text-slate-500">
-            Regra automática de transição em 30 metros
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* INSTALAÇÃO/M (<30) */}
-          <div className="bg-white p-3 rounded-lg border border-slate-200">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-700">
-                INSTALAÇÃO/M (&lt;30)
-              </label>
-              <span className="text-[10px] text-slate-400">Distâncias &lt; 30m</span>
-            </div>
-            <div className="relative mt-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">
-                R$
-              </span>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                value={inputs.taxaMenor30}
-                onChange={(e) =>
-                  onChange({
-                    taxaMenor30: Math.max(0, parseFloat(e.target.value) || 0),
-                  })
-                }
-                className="w-full bg-white border border-slate-300 rounded-md py-1.5 pl-8 pr-3 text-sm font-bold text-slate-900 font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Padrão da planilha: R$ 56,00/m
-            </p>
-          </div>
-
-          {/* INSTALAÇÃO/M (>30) */}
-          <div className="bg-white p-3 rounded-lg border border-slate-200">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-700">
-                INSTALAÇÃO/M (&gt;30)
-              </label>
-              <span className="text-[10px] text-slate-400">Distâncias ≥ 30m</span>
-            </div>
-            <div className="relative mt-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">
-                R$
-              </span>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                value={inputs.taxaMaior30}
-                onChange={(e) =>
-                  onChange({
-                    taxaMaior30: Math.max(0, parseFloat(e.target.value) || 0),
-                  })
-                }
-                className="w-full bg-white border border-slate-300 rounded-md py-1.5 pl-8 pr-3 text-sm font-bold text-slate-900 font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Padrão da planilha: R$ 50,00/m
-            </p>
-          </div>
-
-          {/* Taxa de ART / Projeto opcional */}
-          <div className="bg-white p-3 rounded-lg border border-slate-200">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-700">
-                TAXA FIXA ART / CREA
-              </label>
-              <span className="text-[10px] text-slate-400">Opcional</span>
-            </div>
-            <div className="relative mt-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">
-                R$
-              </span>
-              <input
-                type="number"
-                step="10"
-                min="0"
-                value={inputs.customArtTax}
-                onChange={(e) =>
-                  onChange({
-                    customArtTax: Math.max(0, parseFloat(e.target.value) || 0),
-                  })
-                }
-                className="w-full bg-white border border-slate-300 rounded-md py-1.5 pl-8 pr-3 text-sm font-bold text-slate-900 font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                placeholder="0,00"
-              />
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Somada ao valor do serviço de engenharia
-            </p>
-          </div>
         </div>
       </div>
 

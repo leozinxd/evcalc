@@ -29,10 +29,10 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div>
               <span className="text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap block">
-                VoltCalc EV
+                EV Calc
               </span>
               <span className="text-xs text-slate-500 hidden sm:block">
-                Dimensionamento & Orçamento NBR 5410/17019
+                Dimensionamento & Orçamento p/ carregador veicular
               </span>
             </div>
           </div>

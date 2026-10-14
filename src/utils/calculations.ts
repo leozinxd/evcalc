@@ -79,20 +79,20 @@ export function generateDefaultMaterials(
     formulaDescription: `${distanciaMetros}m × ${numCondutores} condutores (${tipoLigacao})`,
   };
 
-  // 2. Eletroduto PB 32 (ou correspondente): Math.ceil(distancia / 2) barras de 2m
+  // 2. Eletroduto PB 32 (ou correspondente): Math.ceil(distancia / 3) vara de 3m
   const conduitConduitName = `ELETRODUTO ${cableSpec.recommendedConduitSize}`;
-  const conduitQty = Math.max(1, Math.ceil(distanciaMetros / 2));
+  const conduitQty = Math.max(1, Math.ceil(distanciaMetros / 3));
   const conduitUnit = existingItems?.find((i) => i.id === 'eletroduto')?.unitPrice ?? DEFAULT_PRICES.eletrodutoPb32;
   const conduitItem: MaterialItem = {
     id: 'eletroduto',
     name: conduitConduitName,
     category: 'infraestrutura',
     quantity: conduitQty,
-    unit: 'barra 2m',
+    unit: 'vara',
     unitPrice: conduitUnit,
     total: Math.round(conduitQty * conduitUnit * 100) / 100,
     isAutomatic: true,
-    formulaDescription: `Arred. p/ cima (${distanciaMetros}m / 2m por barra)`,
+    formulaDescription: `Arred. p/ cima (${distanciaMetros}m / 3)`,
   };
 
   // 3. Abraçadeira Chaveta: distancia * 1 un
@@ -107,7 +107,7 @@ export function generateDefaultMaterials(
     unitPrice: abracadeiraUnit,
     total: Math.round(abracadeiraQty * abracadeiraUnit * 100) / 100,
     isAutomatic: true,
-    formulaDescription: `1 unidade por metro de tubulação`,
+    formulaDescription: `2 por vara`,
   };
 
   // 4. Curva PB 32: formula proporcional à distância (no sample: 30m = 12 un)
