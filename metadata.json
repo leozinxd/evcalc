@@ -1,0 +1,6 @@
+{
+  "name": "Calculadora de Instalação de Carregadores EV",
+  "description": "Calculadora profissional de custos e gerador de propostas técnicas para instalação de carregadores veiculares elétricos com memorial de materiais e mão de obra.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
